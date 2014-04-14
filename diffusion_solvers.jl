@@ -7,37 +7,6 @@ function exact_solution_test(x::Float64,t::Float64)
     return exp(-4*pi^2*t)*sin(2*pi*x);
 end
 
-function implicit_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=20)
-    @assert(xf>xi); 
-    @assert(tf>0.0); 
-    @assert(D > 0.0); 
-
-    x = linspace(xi,xf,nx+2); 
-    dx = x[2] - x[1]; 
-    @assert(dx == (xf-xi)/(nx+1)); 
-    dt = tf/nt; 
-    lambda = dt*D/dx^2; 
-    
-    temp = 1.0+2.0*lambda;
-    diag = temp*ones(nx); 
-    off_diag = -lambda*ones(nx-1); 
-    
-    B = spdiagm((off_diag,diag,off_diag),[-1,0,1]); 
-    B = full(B); 
-    inverse_B = inv(B); 
-    new_u = Array(Float64,nx); 
-    old_u = map(u0,x[2:end-1]); 
-    
-    for j in 1:nt
-        new_u = inverse_B*old_u; 
-        old_u = new_u; 
-    end
-    prepend!(old_u,[0.0]); 
-    append!(old_u,[0.0]); 
-    return old_u, x; 
-    
-end
-
 function explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,this_D::Float64,nx::Int = 20)
     @assert(this_xf > this_xi); 
     @assert(this_tf > 0.0); 
@@ -68,6 +37,37 @@ function explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,t
     append!(old_u,[0.0]);
     
     return old_u, x;
+end
+
+function implicit_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=20)
+    @assert(xf>xi); 
+    @assert(tf>0.0); 
+    @assert(D > 0.0); 
+
+    x = linspace(xi,xf,nx+2); 
+    dx = x[2] - x[1]; 
+    @assert(dx == (xf-xi)/(nx+1)); 
+    dt = tf/nt; 
+    lambda = dt*D/dx^2; 
+    
+    temp = 1.0+2.0*lambda;
+    diag = temp*ones(nx); 
+    off_diag = -lambda*ones(nx-1); 
+    
+    B = spdiagm((off_diag,diag,off_diag),[-1,0,1]); 
+    B = full(B); 
+    inverse_B = inv(B); 
+    new_u = Array(Float64,nx); 
+    old_u = map(u0,x[2:end-1]); 
+    
+    for j in 1:nt
+        new_u = inverse_B*old_u; 
+        old_u = new_u; 
+    end
+    prepend!(old_u,[0.0]); 
+    append!(old_u,[0.0]); 
+    return old_u, x; 
+    
 end
 
 function crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=20)
