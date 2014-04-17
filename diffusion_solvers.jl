@@ -80,8 +80,6 @@ function crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int 
     @assert(dx == (xf-xi)/(nx+1)); 
     dt = tf/nt; 
     lambda = dt*D/dx^2;
-
-    println("lambda is ",lambda);  
     
     I = speye(nx); 
     
@@ -119,7 +117,6 @@ function MC_crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::I
     nt = iceil(tf*D/dx^2); 
     dt = tf/nt; 
     lambda = dt*D/dx^2;
-    println("lambda is ",lambda); 
     @assert(lambda < 1.0); 
     
     initial_condition = map(u0,x);
