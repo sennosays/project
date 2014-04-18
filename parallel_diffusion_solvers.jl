@@ -18,36 +18,39 @@
         left_boundary = true; 
     elseif myid() == d_u.pmap[end]
         right_boundary = true; 
-       # left_point_index = length((d_u.indexes[local_index-1])[1]); 
     elseif !left_boundary & !right_boundary
         middle = true; 
-        #left_point_index = length((d_u.indexes[local_index-1])[1]); 
     else
         println("Error Determining Array Location"); 
     end
-   
+
     for j in 1:num_steps
     	@sync begin 
-        if middle 
-           new_u = [this_lambda*(d_u[i+1] + d_u[i-1]) + temp*d_u[i] for i in local_range]; 
-        elseif left_boundary 
-               new_u[1] = this_lambda*d_u[2] + temp*d_u[1]; 
-	       #new_u[len] = this_lambda*(d_u[len+1] + d_u[len-1]) + temp*d_u[len]; 
-       	       new_u[2:len] = [this_lambda*(d_u[i+1] +d_u[i-1]) + temp*d_u[i] for i in local_range[2:len]];   
-        elseif right_boundary 
-       	       new_u[len] = this_lambda*d_u[local_range[len-1]] + temp*d_u[local_range[len]];
-       	        new_u[1:len-1] = [this_lambda*(d_u[i+1] + d_u[i-1]) + temp*d_u[i] for i in local_range[1:len-1]];
-        else
-		println("Error with Bounds"); 
-        	#return;
-        end 
+              if middle 
+	      	 for i in 1:len 
+		     index = local_range[i];
+		     new_u[i] = this_lambda*(d_u[index+1] + d_u[index-1]) + temp*d_u[index] 
+		 end
+              elseif left_boundary 
+              	 new_u[1] = this_lambda*d_u[2] + temp*d_u[1];  
+       	       	 for i in 2:len
+		     index = local_range[i]; 
+		     new_u[i] = this_lambda*(d_u[index+1] +d_u[index-1]) + temp*d_u[index];   
+		 end
+              elseif right_boundary 
+       	      	 new_u[len] = this_lambda*d_u[local_range[len-1]] + temp*d_u[local_range[len]];
+       	         for i in 1:len-1
+		     index = local_range[i];
+		     new_u[i] = this_lambda*(d_u[index+1] + d_u[index-1]) + temp*d_u[index];
+		 end
+              else
+		 println("Error with Bounds"); 
+              end 
 	end 
         @sync begin  
-            localpart(d_u)[:] = copy(new_u);
+            localpart(d_u)[:] = new_u;
         end 
-    end
-  
-    return localpart(d_u); 
+    end 
 end
 
 function parallel_explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,this_D::Float64,nx::Int = 20)
@@ -64,18 +67,13 @@ function parallel_explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::
     @assert(lambda < 0.5); 
     u = map(u0,x[2:end-1]); 
     distributed_u = distribute(u);
-    
-    refs = Array(RemoteRef,nworkers());
-    counter = 1;  
+     r = RemoteRef(); 
     for p in procs(distributed_u) 	
-    	refs[counter] = @spawnat p parallel_explicit_stepper!(M,distributed_u,lambda);
-	counter += 1; 
+    	r = @spawnat p parallel_explicit_stepper!(M,distributed_u,lambda);
     end
-    
-    for k in 1:nworkers();
-    	this_range = (distributed_u.indexes[k])[1]; 
-    	u[this_range] = fetch(refs[k])[1];     
-    end  
+   
+    wait(r);  
+    a = rand(1000000,100000); 
 
     u = convert(Array{Float64,1},distributed_u); 
  
