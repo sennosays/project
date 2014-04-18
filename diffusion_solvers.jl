@@ -28,14 +28,17 @@ function explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,t
     new_u = Array(Float64,nx); 
     old_u = map(u0,x[2:end-1]);
     
+    tic()
     for j in 0:M-1
         new_u = A*old_u; 
         old_u = new_u; 
     end
+    time = toq(); 
     
     prepend!(old_u,[0.0]); 
     append!(old_u,[0.0]);
     
+    println("average time for serial solver is ",time/M); 
     return old_u, x;
 end
 

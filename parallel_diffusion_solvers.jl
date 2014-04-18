@@ -1,54 +1,53 @@
-@everywhere function parallel_explicit_stepper!(num_steps::Int,d_u,local_u::Array{Float64,1},this_lambda::Float64)
-    println("this is the newest explicit stepper"); 
-    this_range = (d_u.indexes[myid()-1])[1];
-    len = length(this_range);
-    @assert(len == length(local_u)); 
-    new_u = Array(Float64,len); 
+@everywhere function parallel_explicit_stepper!(num_steps::Int,d_u::DArray,this_lambda::Float64)
+    local_index = findfirst(d_u.pmap,myid()); 
+    local_range = (d_u.indexes[local_index])[1]; 
+    local_array = localpart(d_u); 
+    len = length(local_array);
+    @assert(len == length(local_range)); 
+    new_u = Array(Float64,len);
+    
+    temp = 1.0-2.0*this_lambda; 
     
     left_boundary = false; 
     right_boundary = false; 
     middle = false; 
-    if this_range[1] == 1;
-        left_boundary = true; 
-    elseif this_range[len] == length(d_u); 
-        right_boundary = true; 
-	left_point_index = length((d_u.indexes[myid()-2])[1]); 
-    elseif !left_boudary & !right_boundary 
-        midde = true;
-        left_point_index = length((d_u.indexes[myid()-2])[1]); 
-    else
-        println("Error determining place in array"); 
-        return 
-    end
     
-    temp = 1.0-2.0*this_lambda; 
-
-    for j in 1:num_steps
-        if middle 
-            left_point = remotecall_fetch(myid()-1,getindex,localpart(d_u),left_point_index); 
-            right_point = remotecall_fetch(myid()+1,getindex,localpart(d_u),1); 
-            new_u[1] = this_lambda*(local_u[2]+left_point) + temp*local_u[1]; 
-            new_u[len] = this_lambda*(local_u[len-1]+right_point) + temp*local_[len]; 
-        elseif left_boundary 
-            right_point = remotecall_fetch(myid()+1,getindex,localpart(d_u),1); 
-            new_u[1] = this_lambda*local_u[2] + temp*local_u[1]; 
-            new_u[len] = this_lambda*(local_u[len-1] + right_point) + temp*local_u[len]; 
-        elseif right_boundary
-	    r = @spawnat myid()-1 getindex(localpart(d_u),left_point_index); 
-	    left_point = fetch(r); 
-            new_u[1] = this_lambda*(local_u[2] + left_point) + temp*local_u[1]; 
-            new_u[len] = this_lambda*local_u[len-1] + temp*local_u[len];
-        else
-            println("Error with Bounds"); 
-            return
-        end
-        new_u[2:len-1] = [this_lambda*(local_u[i-1] + local_u[i+1]) + temp*local_u[i] for i in 2:len-1];
-        
-        for k in 1:len 
-            local_u[k] = new_u[k]; 
-        end
+    #figure out where this piece of the array is in the distributed array
+    #and how to get neighboring points 
+    if local_index == 1
+        left_boundary = true; 
+    elseif myid() == d_u.pmap[end]
+        right_boundary = true; 
+       # left_point_index = length((d_u.indexes[local_index-1])[1]); 
+    elseif !left_boundary & !right_boundary
+        middle = true; 
+        #left_point_index = length((d_u.indexes[local_index-1])[1]); 
+    else
+        println("Error Determining Array Location"); 
     end
-    local_u;   
+   
+    for j in 1:num_steps
+    	@sync begin 
+        if middle 
+           new_u = [this_lambda*(d_u[i+1] + d_u[i-1]) + temp*d_u[i] for i in local_range]; 
+        elseif left_boundary 
+               new_u[1] = this_lambda*d_u[2] + temp*d_u[1]; 
+	       #new_u[len] = this_lambda*(d_u[len+1] + d_u[len-1]) + temp*d_u[len]; 
+       	       new_u[2:len] = [this_lambda*(d_u[i+1] +d_u[i-1]) + temp*d_u[i] for i in local_range[2:len]];   
+        elseif right_boundary 
+       	       new_u[len] = this_lambda*d_u[local_range[len-1]] + temp*d_u[local_range[len]];
+       	        new_u[1:len-1] = [this_lambda*(d_u[i+1] + d_u[i-1]) + temp*d_u[i] for i in local_range[1:len-1]];
+        else
+		println("Error with Bounds"); 
+        	#return;
+        end 
+	end 
+        @sync begin  
+            localpart(d_u)[:] = copy(new_u);
+        end 
+    end
+  
+    return localpart(d_u); 
 end
 
 function parallel_explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,this_D::Float64,nx::Int = 20)
@@ -64,33 +63,26 @@ function parallel_explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::
     lambda = dt*this_D/dx^2; 
     @assert(lambda < 0.5); 
     u = map(u0,x[2:end-1]); 
-    distributed_u = distribute(u); 
-    #for j in 0:M-1
-    #    new_u[1] = lambda*old_u[2] + temp*old_u[1]; 
-    #    for i in 2:nx-1
-    #        new_u[i] = lambda*(old_u[i+1]+old_u[i-1]) + temp*old_u[i]; 
-    #    end
-    #    new_u[nx] = lambda*old_u[nx-1] + temp*old_u[nx];
-    #    old_u = copy(new_u); 
-    #end 
-    refs = Array(RemoteRef,2); 
-    counter = 1; 
-    for p in procs(distributed_u) 
-        refs[counter] = @spawnat p parallel_explicit_stepper!(1000,distributed_u,localpart(distributed_u),lambda);
+    distributed_u = distribute(u);
+    
+    refs = Array(RemoteRef,nworkers());
+    counter = 1;  
+    for p in procs(distributed_u) 	
+    	refs[counter] = @spawnat p parallel_explicit_stepper!(M,distributed_u,lambda);
 	counter += 1; 
     end
+    
+    for k in 1:nworkers();
+    	this_range = (distributed_u.indexes[k])[1]; 
+    	u[this_range] = fetch(refs[k])[1];     
+    end  
 
-    println(fetch(refs[2])); 
-
-
-    #plot(x[2:end-1],distributed_u); 
-
-    #u = convert(Array{Float64,1},distributed_u); 
-
+    u = convert(Array{Float64,1},distributed_u); 
+ 
     prepend!(u,[0.0]); 
     append!(u,[0.0]); 
 
-    return u, x;
+    return u, x, map(u0,x);
 end
 
 function pmap_MC_crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 50,num_walkers::Int = 1000)
