@@ -25,7 +25,7 @@
     end
 
     for j in 1:num_steps
-    	@sync begin 
+    	#@sync begin 
               if middle 
 	      	 for i in 1:len 
 		     index = local_range[i];
@@ -46,7 +46,7 @@
               else
 		 println("Error with Bounds"); 
               end 
-	end 
+	#end 
         @sync begin  
             localpart(d_u)[:] = new_u;
         end 
@@ -73,7 +73,6 @@ function parallel_explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::
     end
    
     wait(r);  
-    a = rand(1000000,100000); 
 
     u = convert(Array{Float64,1},distributed_u); 
  
