@@ -31,4 +31,4 @@ function npoints_dependence(nsamples = 5,walkers = 1000)
     end
 end
 
-npoints_dependence(20);
+npoints_dependence(5);
