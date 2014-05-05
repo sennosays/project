@@ -31,8 +31,4 @@ function npoints_dependence(nsamples = 5,walkers = 1000)
     end
 end
 
-<<<<<<< HEAD
 npoints_dependence(5,5000);
-=======
-npoints_dependence(5);
->>>>>>> FETCH_HEAD
