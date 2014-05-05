@@ -27,7 +27,7 @@ function npoints_dependence(nsamples = 5,walkers = 1000)
         println("times: \n",times[1:4,n]'); 
         println("errors: \n ",errors[1:4,n]'); 
         
-        npoints *= 2; 
+        npoints += 100; 
     end
 end
 
