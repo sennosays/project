@@ -9,7 +9,7 @@ of the code is on display in the notebook Advection Diffusion Test. All of the f
 
 Note that to run mc_test.jl, run_npoints_dependence.jl, and tests.jl one should include the locations for parallel_diffusion_solvers.jl and diffusion_solvers.jl in the command line. For example: 
 
-julia -p 3 -L diffusion_solvers.jl -L parallel_diffusion_solvers.jl run_procs_dependence.jl 
+julia -p 3 -L diffusion_solvers.jl -L parallel_diffusion_solvers.jl run_npoints_dependence.jl 
 
 Please send all comments or concerns to
 
