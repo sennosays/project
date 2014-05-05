@@ -14,9 +14,9 @@ function explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,t
 
     x = linspace(this_xi,this_xf,nx+2); 
     dx = x[2] - x[1]; 
-    @assert(dx == (xf-xi)/(nx+1));
-    M = iround(tf*this_D/(0.49*dx^2)); 
-    dt = tf/M; 
+    @assert(dx == (this_xf-this_xi)/(nx+1));
+    M = iround(this_tf*this_D/(0.49*dx^2)); 
+    dt = this_tf/M; 
     lambda = dt*this_D/dx^2; 
     @assert(lambda < 0.5); 
     
@@ -39,7 +39,7 @@ function explicit_solver(u0,this_xi::Float64,this_xf::Float64,this_tf::Float64,t
     return old_u, x;
 end
 
-function implicit_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=20)
+function implicit_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=100)
     @assert(xf>xi); 
     @assert(tf>0.0); 
     @assert(D > 0.0); 
@@ -70,7 +70,7 @@ function implicit_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::I
     
 end
 
-function crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=20)
+function crank_solver(u0,xi::Float64,xf::Float64,tf::Float64,D::Float64,nx::Int = 20,nt::Int=100)
     @assert(xf>xi); 
     @assert(tf>0.0); 
     @assert(D > 0.0); 
